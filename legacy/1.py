@@ -1,6 +1,7 @@
 # import numpy as np
 import random
 import time
+
 COLOR_BLACK = -1
 COLOR_WHITE = 1
 COLOR_NONE = 0
@@ -11,51 +12,51 @@ random.seed(0)
 class AI(object):
     # chessboard_size, color, time_out passed from agent
     def __init__(self, chessboard_size, color, time_out):
+        v = 1
         self.chessboard_size = chessboard_size
+        # You are white or black
         self.color = color
         self.opponent = -color
+        # the max time you should use, your algorithm's run time must not exceed the time limit.
         self.time_out = time_out
+        # You need add your decision into your candidate_list. System will get the end of your candidate_list as your decision .
         self.candidate_list = []
-        
-        self.epoch = [
-            0, 20, 40, 55
+
+        self.wcond = [
+            0, 20, 40, 57
         ]
-        # count, pos, crowd
+        # count, move, pos, crowd,safe
         self.weights = [
-            [0, 2, 1],  # 0+
-            [0, 2, 1],  # 20+
-            [0, 2, 1],  # 40+
-            [5, 0, 0],  # 55+
+            [2, 1, 1, 1, 1],  # 0+
+            [2, 1, 1, 1, 1],  # 20+
+            [1, 1, 1, 1, 1],  # 40+
+            [5, 0, 0, 0, 0],  # 55+
         ]
         self.all = []
         for x in range(8):
             for y in range(8):
                 self.all.append((x, y))
-        self.pos_core = [
-            [-100, 20, -5, -5],
-            [20, -20, -1, -1],
-            [-5, -1, -1, -1, ],
-            [-5, -1, -1, -1],
+        self.pos_mask_core = [
+            [-50, 5, -5, -5],
+            [5, 0, 0, 0],
+            [-5, 0, 1, 1, ],
+            [-5, 0, 1, 0],
         ]
-        self.posmask = self.genmat(self.pos_core)
-        print('pos mask:')
-        print(self.posmask)
+        self.move_mask_core = [
+            [0, 1, 0, 0],
+            [1, 4, 4, 4],
+            [0, 4, 1, 1, ],
+            [0, 4, 1, 1],
+        ]
+        self.posmask = self.genmat(self.pos_mask_core)
+        self.movemask = self.genmat(self.move_mask_core)
 
     def setweights(self, w, c):
-        self.pos_core = [
-            [w[0], w[1], w[3], w[4]],
-            [w[1], w[2], w[5], w[5]],
-            [w[3], w[5], w[6], w[6] ],
-            [w[4], w[5], w[6], w[6]],
-        ]
-        w=w[7:]
         for i,row in enumerate(self.weights):
             for j,_ in enumerate(row):
                 self.weights[i][j]=w[0]
-                w=w[1:]
-        self.epoch = c
-        print('epoch',self.epoch)
-        print('weights',self.weights)
+                w[1:]
+        self.wcond = c
 
     def next(self, board, pos, color):
         res = [list(row) for row in board]
@@ -73,7 +74,8 @@ class AI(object):
                                 if step > 1:
                                     for t in range(1, step):
                                         if res[pos[0]+dirx * t][pos[1]+diry*t] == color or res[pos[0]+dirx * t][pos[1]+diry*t] == COLOR_NONE:
-                                            raise Exception(f'wrong flip')
+                                            raise Exception(
+                                                f'flip error {pos} {(pos[0]+dirx * t,pos[1]+diry*t)}')
                                         res[pos[0]+dirx *
                                             t][pos[1]+diry*t] = color
                                         cnt += 1
@@ -101,11 +103,10 @@ class AI(object):
     def timeout(self):
         return time.time()-self.start >= self.time_out-0.2
     
-    
     def getweight(self, board):
         s = self.steps(board)
-        for i in range(1, len(self.epoch)+1):
-            if self.epoch[-i] <= s:
+        for i in range(1, len(self.wcond)+1):
+            if self.wcond[-i] <= s:
                 return self.weights[-i]
 
     def inside(self, pos):
@@ -141,7 +142,12 @@ class AI(object):
         if self.timeout():
             return 0
         if stop == 0 or self.timeout() or len(cp) == 0:
-            return self.eval(board, me)
+            return self.util(board, me)
+        # res = -1e5 if term == 1 else 1e5
+        # scores = {}
+        # for pos in cp:
+        #     scores[pos] = self.util(self.next(board, pos, me), me)
+        # cp.sort(key=lambda x: scores[x])
         for pos in cp:
             nextboard = self.next(board, pos, me)
             x = self.minimax(nextboard, -term, alpha, beta, stop-1)
@@ -149,14 +155,20 @@ class AI(object):
                 return 0
             if term == 1:
                 alpha = max(alpha, x)
+                # res = max(res, x)
             else:
                 beta = min(beta, x)
+                # res = min(res, x)
             if alpha >= beta:
                 return alpha if term == 1 else beta
         return alpha if term == 1 else beta
 
     def steps(self, board):
-        return len([pos for pos in self.all if self.get(board,pos)!=COLOR_NONE])
+        cnt = 0
+        for pos in self.all:
+            if self.get(board, pos) != COLOR_NONE:
+                cnt += 1
+        return cnt
 
     def crowd_score(self, board, color):
         cnt = 0
@@ -174,6 +186,14 @@ class AI(object):
                 cnt += 1
         return cnt
 
+    def safe_score(self, board, color):
+        rival = -color
+        safe = set(x for x in self.all if self.get(board,x) == color)
+        for pos in self.canput(board, rival):
+            afterput = self.next(board, pos, rival)
+            safe = set(x for x in safe if self.get(afterput, x) == color)
+        return -len(safe)
+
     def count_score(self, board, color):  # ~10
         res = 0
         for pos in self.all:
@@ -181,6 +201,15 @@ class AI(object):
                 res -= 1
             elif self.get(board, pos) == -color:
                 res += 1
+        return res
+
+    def move_score(self, board, color):  # ~10
+        res = 0
+        for pos in self.canput(board, color):
+            # if self.get(board, pos) == color:
+            res += self.get(self.movemask, pos)
+            # elif self.get(board, pos) == -color:
+            #     res -= self.get(self.movemask, pos)
         return res
 
     def pos_score(self, board, color):  # ~10
@@ -192,14 +221,14 @@ class AI(object):
                 res -= self.get(self.posmask, pos)
         return res
 
-    def eval(self, board, color):
+    def util(self, board, color):
         w = self.getweight(board)
         if color == self.color:
             sign = 1
         else:
             sign = -1
         val = self.count_score(
-            board, color)*w[0]+self.pos_score(board, color)*w[1]+self.crowd_score(board, color)*w[2]
+            board, color)*w[0]+self.move_score(board, color)*w[1]+self.pos_score(board, color)*w[2]+self.crowd_score(board, color)*w[3]+self.safe_score(board, color)*w[4]
         return val*sign
     
     def canput(self, board, color):
@@ -217,22 +246,30 @@ class AI(object):
         self.candidate_list.clear()
         choices = self.canput(chessboard, self.color)
         score = {}
-        for stop in range(2, 12,2):
+        for stop in range(1, 20,2):
+            temp = {}
+            finish = True
             for x in choices:
                 s = self.minimax(
                     self.next(chessboard, x, self.color), -1, -1e6, 1e6, stop)
                 if self.timeout():
+                    finish = False
                     break
-                score[x] = s
+                temp[x] = s
+            if finish:
+                score = temp
         print(choices)
         print(score)
         choices.sort(key=lambda x: score[x])
+        if self.steps(chessboard)>58 and score[x]<0:
+            raise "failed"
         self.candidate_list = choices
+        # print(self.candidate_list)
 
 
 def show(board):
     for i, row in enumerate(board):
-        # print(i, end='')
+        print(i, end='')
         for item in row:
             if item == COLOR_NONE:
                 print('-', end='')
@@ -248,8 +285,8 @@ def show(board):
 
 def play(w0=None,c0=None,w1=None,c1=None):
     random.seed(0)
-    ai0 = AI(8, 1, 5)
-    ai1 = AI(8, -1, 5)
+    ai0 = AI(8, 1, 0.5)
+    ai1 = AI(8, -1, 0.5)
     if w0 is not None:
         ai0.setweights(w0, c0)
     if w1 is not None:
@@ -291,6 +328,5 @@ def play(w0=None,c0=None,w1=None,c1=None):
 
 
 if __name__ == '__main__':
-    # play()
-
+    play()
     pass
