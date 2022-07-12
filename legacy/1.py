@@ -43,10 +43,10 @@ class AI(object):
             [-5, 0, 1, 0],
         ]
         self.move_mask_core = [
-            [0, 1, 0, 0],
+            [0, 1, 1, 1],
             [1, 4, 4, 4],
-            [0, 4, 1, 1, ],
-            [0, 4, 1, 1],
+            [1, 4, 2, 2, ],
+            [1, 4, 2, 2],
         ]
         self.posmask = self.genmat(self.pos_mask_core)
         self.movemask = self.genmat(self.move_mask_core)
