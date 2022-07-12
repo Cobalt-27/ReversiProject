@@ -43,6 +43,10 @@
             "IronPython": {
               "target": "Package",
               "version": "[3.4.0-beta1, )"
+            },
+            "IronPython.StdLib": {
+              "target": "Package",
+              "version": "[3.4.0-beta1, )"
             }
           },
           "imports": [

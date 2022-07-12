@@ -2,7 +2,6 @@
 import random
 import time
 
-
 COLOR_BLACK = -1
 COLOR_WHITE = 1
 COLOR_NONE = 0
@@ -24,28 +23,28 @@ class AI(object):
         self.candidate_list = []
 
         self.wcond = [
-            0, 20, 45, 55
+            0, 20, 40, 57
         ]
-        # count, move, pos, deadpos,safe
+        # count, move, pos, crowd,safe
         self.weights = [
-            (0, 1, 2, 1, 1),  # 0+
-            (0, 2, 2, 1, 1),  # 20+
-            (1, 2, 2, 1, 1),  # 45+
-            (1, 0, 0, 0, 0),  # 55+
+            [2, 1, 1, 1, 1],  # 0+
+            [2, 1, 1, 1, 1],  # 20+
+            [1, 1, 1, 1, 1],  # 40+
+            [5, 0, 0, 0, 0],  # 55+
         ]
         self.all = []
-        for x in range(self.chessboard_size):
-            for y in range(self.chessboard_size):
+        for x in range(8):
+            for y in range(8):
                 self.all.append((x, y))
         self.pos_mask_core = [
-            [-30, 1, -2, -2],
+            [-50, 1, -5, -5],
             [1, 0, 0, 0],
-            [-2, 0, 0, 0, ],
-            [-2, 0, 0, 0],
+            [-5, 0, 1, 1, ],
+            [-5, 0, 1, 0],
         ]
         self.move_mask_core = [
-            [0, 5, 0, 0],
-            [5, 4, 4, 4],
+            [0, 1, 0, 0],
+            [1, 4, 4, 4],
             [0, 4, 1, 1, ],
             [0, 4, 1, 1],
         ]
@@ -53,7 +52,10 @@ class AI(object):
         self.movemask = self.genmat(self.move_mask_core)
 
     def setweights(self, w, c):
-        self.weights = w
+        for i,row in enumerate(self.weights):
+            for j,_ in enumerate(row):
+                self.weights[i][j]=w[0]
+                w[1:]
         self.wcond = c
 
     def next(self, board, pos, color):
@@ -99,8 +101,8 @@ class AI(object):
         return res
 
     def timeout(self):
-        return time.time()-self.start >= self.time_out-0.3
-
+        return time.time()-self.start >= self.time_out-0.2
+    
     def getweight(self, board):
         s = self.steps(board)
         for i in range(1, len(self.wcond)+1):
@@ -142,10 +144,10 @@ class AI(object):
         if stop == 0 or self.timeout() or len(cp) == 0:
             return self.util(board, me)
         # res = -1e5 if term == 1 else 1e5
-        scores = {}
-        for pos in cp:
-            scores[pos] = self.util(self.next(board, pos, me), me)
-        cp.sort(key=lambda x: scores[x])
+        # scores = {}
+        # for pos in cp:
+        #     scores[pos] = self.util(self.next(board, pos, me), me)
+        # cp.sort(key=lambda x: scores[x])
         for pos in cp:
             nextboard = self.next(board, pos, me)
             x = self.minimax(nextboard, -term, alpha, beta, stop-1)
@@ -168,20 +170,20 @@ class AI(object):
                 cnt += 1
         return cnt
 
-    def deadpos_score(self, board, color):
+    def crowd_score(self, board, color):
         cnt = 0
         for x in range(8):
             val = color*sum(board[x])
             if val > 6:
-                cnt -= 10
+                cnt -= 1
             if val < 6:
-                cnt += 10
+                cnt += 1
         for y in range(8):
             val = color*sum(board[x][y] for x in range(8))
             if val > 6:
-                cnt -= 10
+                cnt -= 1
             if val < 6:
-                cnt += 10
+                cnt += 1
         return cnt
 
     def safe_score(self, board, color):
@@ -190,7 +192,7 @@ class AI(object):
         for pos in self.canput(board, rival):
             afterput = self.next(board, pos, rival)
             safe = set(x for x in safe if self.get(afterput, x) == color)
-        return len(safe)
+        return -len(safe)
 
     def count_score(self, board, color):  # ~10
         res = 0
@@ -226,9 +228,9 @@ class AI(object):
         else:
             sign = -1
         val = self.count_score(
-            board, color)*w[0]+self.move_score(board, color)*w[1]+self.pos_score(board, color)*w[2]+self.deadpos_score(board, color)*w[3]+self.safe_score(board, color)*w[4]
+            board, color)*w[0]+self.move_score(board, color)*w[1]+self.pos_score(board, color)*w[2]+self.crowd_score(board, color)*w[3]+self.safe_score(board, color)*w[4]
         return val*sign
-
+    
     def canput(self, board, color):
         res = []
         for pos in self.all:
@@ -244,11 +246,9 @@ class AI(object):
         self.candidate_list.clear()
         choices = self.canput(chessboard, self.color)
         score = {}
-        for stop in range(2, 20):
+        for stop in range(1, 20,2):
             temp = {}
             finish = True
-            if self.timeout():
-                break
             for x in choices:
                 s = self.minimax(
                     self.next(chessboard, x, self.color), -1, -1e6, 1e6, stop)
@@ -258,17 +258,16 @@ class AI(object):
                 temp[x] = s
             if finish:
                 score = temp
-        choices.sort(key=lambda x: score[x])
         print(choices)
         print(score)
+        choices.sort(key=lambda x: score[x])
+        if self.steps(chessboard)>58 and score[x]<0:
+            raise "failed"
         self.candidate_list = choices
         # print(self.candidate_list)
 
 
 def show(board):
-    # for y in range(8):
-    #     print(y,end='')
-    # print('')
     for i, row in enumerate(board):
         print(i, end='')
         for item in row:
@@ -284,12 +283,15 @@ def show(board):
     print('')
 
 
-def play(size, ai0: AI, ai1: AI, w0=None, c0=None, w1=None, c1=None):
+def play(w0=None,c0=None,w1=None,c1=None):
+    random.seed(0)
+    ai0 = AI(8, 1, 0.5)
+    ai1 = AI(8, -1, 0.5)
     if w0 is not None:
         ai0.setweights(w0, c0)
     if w1 is not None:
         ai1.setweights(w1, c1)
-    chessboard = [[0 for _ in range(size)] for _ in range(size)]
+    chessboard = [[0 for _ in range(8)] for _ in range(8)]
     chessboard[3][3] = 1
     chessboard[4][4] = 1
     chessboard[3][4] = -1
@@ -302,32 +304,29 @@ def play(size, ai0: AI, ai1: AI, w0=None, c0=None, w1=None, c1=None):
                 break
             else:
                 stoptag = 1
-        stoptag = 0
-        ai0_choice = ai0.candidate_list[-1]
-
-        if chessboard[ai0_choice[0]][ai0_choice[1]] != COLOR_NONE:
-            raise "duplicated step"
-        chessboard[ai0_choice[0]][ai0_choice[1]] = 1
-        chessboard = ai0.next(chessboard, ai0_choice, ai0.color)
-        show(chessboard)
+        else:
+            stoptag = 0
+            ai0_choice = ai0.candidate_list[-1]
+            if chessboard[ai0_choice[0]][ai0_choice[1]] != COLOR_NONE:
+                raise "duplicated step"
+            chessboard = ai0.next(chessboard, ai0_choice, ai0.color)
+            show(chessboard)
         ai1.go(chessboard)
         if(len(ai1.candidate_list) == 0):
             if stoptag == 1:
                 break
             else:
                 stoptag = 1
-        stoptag = 0
-        ai1_choice = ai1.candidate_list[-1]
-        if chessboard[ai1_choice[0]][ai1_choice[1]] != COLOR_NONE:
-            raise "duplicated step"
-        chessboard[ai1_choice[0]][ai1_choice[1]] = -1
-        chessboard = ai1.next(chessboard, ai1_choice, ai1.color)
-        show(chessboard)
+        else:
+            stoptag = 0
+            ai1_choice = ai1.candidate_list[-1]
+            if chessboard[ai1_choice[0]][ai1_choice[1]] != COLOR_NONE:
+                raise "duplicated step"
+            chessboard = ai1.next(chessboard, ai1_choice, ai1.color)
+            show(chessboard)
     return ai0.count_score(chessboard, ai0.color)
 
 
 if __name__ == '__main__':
-    size = 8
-    ai = AI(8, 1, 5)
-    ai2 = AI(8, -1, 5)
-    play(size, ai, ai2)
+    play()
+    pass
