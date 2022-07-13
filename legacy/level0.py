@@ -18,13 +18,13 @@ class AI(object):
         self.candidate_list = []
 
         self.epoch = [
-            0, 20, 40, 60
+            0, 20, 40, 62
         ]
         # count, pos, crowd, move
         self.weights = [
-            [2, 1, 1,1],  # 0+
-            [3, 1, 1,2],  # 20+
-            [2, 1, 1,2],  # 40+
+            [1, 3, 2,0],  # 0+
+            [1, 4, 2,1],  # 20+
+            [1, 1, 1,2],  # 40+
             [1, 0, 0,0],  # 55+
         ]
         self.all = []
@@ -32,17 +32,17 @@ class AI(object):
             for y in range(8):
                 self.all.append((x, y))
         self.pos_core = [
-            [-100, 20, -5, -5],
-            [20, 20, 1, 1],
-            [-5, 1, -1, -1 ],
-            [-5,1 , -1,-1],
+            [-200, 40, -8, -4],
+            [40, -20, -10, -1],
+            [-8, -10, 2, 2, ],
+            [-4, -1, 2, -1],
         ]
         self.posmask = self.genmat(self.pos_core)
         self.move_core = [
-            [0, 2, 1, 1],
-            [2, 2, 2, 2],
-            [1, 2, 1, 1, ],
-            [1, 2, 1, 1],
+            [0, 1, 1, 1],
+            [1, 1, 4, 4],
+            [1, 4, 2, 2, ],
+            [1, 4, 2, 2],
         ]
         self.movemask = self.genmat(self.move_core)
         # print('pos mask:')
@@ -166,24 +166,27 @@ class AI(object):
 
     def crowd_score(self, board, color):
         cnt = 0
+        def check(val):
+            res=0
+            if val == 7:
+                res -= 1
+            if val == 8:
+                res -= 5
+            if val == -7:
+                res += 1
+            if val == -8:
+                res += 10
+            return res
         for x in range(8):
-            if board[x][0]!=color and board[x][7]!=color:
-                continue
-            for y in range(8):
-                if board[x][y]==color:
-                    cnt+=1
+            cnt+=check(color*sum(board[x]))
         for y in range(8):
-            if board[0][y]!=color and board[7][y]!=color:
-                continue
-            for x in range(8):
-                if board[x][y]==color:
-                    cnt+=1
+            cnt+=check(color*sum(board[x][y] for x in range(8)))
         return cnt
     
     def move_score(self, board, color):  # ~10
         res = 0
-        for pos in self.canput(board, -color):
-            res -= self.get(self.movemask, pos)
+        for pos in self.canput(board, color):
+            res += self.get(self.movemask, pos)
         return res
 
     def count_score(self, board, color):  # ~10
@@ -193,10 +196,6 @@ class AI(object):
                 res -= 1
             elif self.get(board, pos) == -color:
                 res += 1
-        if res<-15:
-            res*=2
-        if res<=25:
-            res*=2
         return res
 
     def pos_score(self, board, color):  # ~10
@@ -214,15 +213,8 @@ class AI(object):
             sign = 1
         else:
             sign = -1
-        val=0
-        if w[0]!=0:
-            val+=self.count_score(board, color)*w[0]
-        if w[1]!=0:
-            val+=self.pos_score(board, color)*w[1]
-        if w[2]!=0:
-            val+=self.crowd_score(board, color)*w[2]
-        if w[3]!=0:
-            val+=self.move_score(board,color)*w[3]
+        val = self.count_score(
+            board, color)*w[0]+self.pos_score(board, color)*w[1]+self.crowd_score(board, color)*w[2]+self.move_score(board,color)*w[3]
         return val*sign
 
     def canput(self, board, color):
@@ -240,7 +232,7 @@ class AI(object):
         self.candidate_list.clear()
         choices = self.canput(chessboard, self.color)
         score = {}
-        for stop in [1,4,6,9,12,16]:
+        for stop in [1,3,5,6,7]:
             if self.timeout():
                 break
             temp={}
