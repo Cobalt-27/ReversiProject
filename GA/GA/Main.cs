@@ -12,85 +12,87 @@ namespace GA
         static Random rand = new Random();
         public class Weight
         {
-            public int[] val = new int[] { -100, 20, -20, -5, -1, -1,-1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 5, 0, 0 };
+            public int[] val = new int[] { -100, 20, 10, -5, 1, -1, -5, 1, -1, -1, 2, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 0, 0, 0 };
             public void Print()
             {
-                foreach(var x in val)
-                {
-                    Console.Write(x + " ");
-                }
+                val.ToList().ForEach(x => Console.Write(x + " "));
                 Console.Write("\n");
             }
+            public void Mutate()
+            {
+                val = val.Select(s => s + rand.Next() % 6 - 3).ToArray();
+            }
         };
-        public class Cond
+        public void Run()
         {
-            public int[] val = new int[] { 0,20,40,55};
-        };
-        public void Start()
-        {
-            Run().Wait();
-        }
-        public async Task Run()
-        {
-            Cond cond = new();
             List<Weight> wlist = new();
-            int size = 8;
+            int size = 16;
             wlist.Add(new Weight());
-            for (int i = 1; i < size; i++)
+            var path = @"C:\Users\Clover\Desktop\AI\Reversi\reversi.py";
+            var eng = IronPython.Hosting.Python.CreateEngine();
+            var scope = eng.CreateScope();
+            eng.Execute(File.ReadAllText(path), scope);
+            for(int i=0;i<size/2;i++)
+                wlist.Add(new Weight());
+            for (int i = size/2; i < size; i++)
                 wlist.Add(RandWeight());
-            var tasks = new List<Task<int>>();
-            var rivalList = new List<int>();
-            Dictionary<Weight, int> scores = new();
-            foreach(var w in wlist)
+            for (int E = 0; E < 100; E++)
             {
-                scores[w] = 0;
-                var rival = rand.Next() % (wlist.Count);
-                rivalList.Add(rival);
-                var rivalW = wlist[rival];
-                tasks.Add(NewJob(w, cond, rivalW,cond));
+                Console.WriteLine($"Epoch {E}");
+                Dictionary<Weight, int> scores = new();
+                wlist.ForEach(w => scores[w] = 0);
+                for(int i=0;i<wlist.Count;i++)
+                {
+                    var w = wlist[i];
+                    for (int j = 0; j < 5; j++)
+                    {
+                        var idx = rand.Next() % (wlist.Count);
+                        var rivalW = wlist[idx];
+                        var res= scope.GetVariable("play")(wlist[i].val, rivalW.val); 
+                        scores[wlist[i]] += res;
+                        scores[rivalW] -= res;
+                        Console.WriteLine($"{i} vs {idx}-> {res}");
+                    }
+                }
+                wlist = wlist.OrderBy(w => -scores[w]).ToList();
+                Console.WriteLine("######");
+                foreach (var w in wlist)
+                    w.Print();
+                var newList = new List<Weight>();
+                for (int i = 0; i < size / 2; i++)
+                    for (int j = 0; j < 2; j++)
+                        newList.Add(Cross(wlist[i], wlist[rand.Next() % (size / 2)]));
+                wlist = newList;
+                wlist.ForEach(x =>
+                {
+                    if (rand.Next() % 2 == 0)
+                        x.Mutate();
+                });
+                wlist = wlist.Take(15).ToList();
+                wlist.Add(RandWeight());
+                if (wlist.Count != size)
+                    throw new Exception("wrong size");
             }
-            for(int i=0;i<size;i++)
-            {
-                var res = await tasks[i];
-                scores[wlist[i]] += res;
-                scores[wlist[rivalList[i]]] -= res;
-                Console.WriteLine($"Task {i} between {i} {rivalList[i]} finished with result {res}");
-            }
-            wlist.Sort((x,y) => scores[x]-scores[y]);
-            foreach (var w in wlist) {
-                w.Print();
-             }
+            
+
         }
 
         Weight Cross(Weight a, Weight b)
         {
             Weight res = new();
-            res.val=a.val.Select((item, i) => rand.NextDouble() > 0.5 ? a.val[i] : b.val[i]).ToArray();
+            res.val = a.val.Select((item, i) => rand.NextDouble() > 0.5 ? a.val[i] : b.val[i]).ToArray();
             return res;
         }
 
         Weight RandWeight()
         {
             Weight res = new();
-            for(int i=0;i<7;i++)
-                res.val[i] = rand.Next() % 100-50;
-            for (int i = 7; i < res.val.Length; i++)
+            for (int i = 0; i < 10; i++)
+                res.val[i] = rand.Next() % 200 - 100;
+            for (int i = 10; i < res.val.Length; i++)
                 res.val[i] = rand.Next() % 20;
             return res;
         }
-
-        async Task<int> NewJob(Weight w0,Cond c0,Weight w1,Cond c1)
-        {
-            return await Task.Run(() =>
-            {
-                var path = @"C:\Users\Clover\Desktop\AI\Reversi\reversi.py";
-                var eng = IronPython.Hosting.Python.CreateEngine();
-                var scope = eng.CreateScope();
-                eng.Execute(File.ReadAllText(path),scope);
-                return scope.GetVariable("play")(w0.val,c0.val,w1.val,c1.val);
-            });
-        }
-
 
     }
 }
