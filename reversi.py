@@ -23,8 +23,8 @@ class AI(object):
         # count, pos, crowd, move
         self.weights = [
             [2, 1, 1,1],  # 0+
-            [3, 1, 1,2],  # 20+
-            [2, 1, 1,2],  # 40+
+            [3, 1, 1,1],  # 20+
+            [2, 1, 1,0],  # 40+
             [1, 0, 0,0],  # 55+
         ]
         self.all = []
@@ -33,7 +33,7 @@ class AI(object):
                 self.all.append((x, y))
         self.pos_core = [
             [-100, 20, -5, -5],
-            [20, 20, 1, 1],
+            [20, 10, 1, 1],
             [-5, 1, -1, -1 ],
             [-5,1 , -1,-1],
         ]
@@ -178,6 +178,7 @@ class AI(object):
             for x in range(8):
                 if board[x][y]==color:
                     cnt+=1
+        cnt//=2
         return cnt
     
     def move_score(self, board, color):  # ~10
@@ -240,18 +241,19 @@ class AI(object):
         self.candidate_list.clear()
         choices = self.canput(chessboard, self.color)
         score = {}
-        for stop in [1,4,6,9,12,16]:
+        for stop in [1,3,5,9,12,16]:
             if self.timeout():
                 break
             temp={}
             finish=True
             for x in choices:
+                nextboard=self.next(chessboard, x, self.color)
                 s = self.minimax(
-                    self.next(chessboard, x, self.color), -1, -1e6, 1e6, stop)
+                    nextboard, -1, -1e6, 1e6, stop)
                 if self.timeout():
                     finish=False
                     break
-                temp[x]=s
+                temp[x]=s+self.move_score(nextboard,self.color)
             if finish:
                 score=temp
         # print(choices)
