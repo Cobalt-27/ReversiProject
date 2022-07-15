@@ -12,15 +12,15 @@ namespace GA
         static Random rand = new Random();
         public class Weight
         {
-            public int[] val = new int[] { -100, 20, 10, -5, 1, -1, -5, 1, -1, -1, 2, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 0, 0, 0 };
+            public double[] val = new double[] { -151.0,-1.0,5.0,- 26.0,- 16.0,- 10.0,13.0,- 12.0,2.0,3.0,5.6,3.2,- 2.9,3.3,1,2.9,1.0,1.8,0.3,1,- 0.6,0.1,- 2.5,5.5,1,2.1,4.0,1.3,- 2.5,1 };
             public void Print()
             {
-                val.ToList().ForEach(x => Console.Write(x + " "));
+                val.ToList().ForEach(x => Console.Write(Math.Round(x,1).ToString("0.0") + ","));
                 Console.Write("\n");
             }
             public void Mutate()
             {
-                val = val.Select(s => s + rand.Next() % 6 - 3).ToArray();
+                val = val.Select((s,i) => i<10?s + rand.Next() % 7 - 3:s+rand.NextDouble()-0.5).ToArray();
             }
         };
         public void Run()
@@ -36,7 +36,7 @@ namespace GA
                 wlist.Add(new Weight());
             for (int i = size/2; i < size; i++)
                 wlist.Add(RandWeight());
-            for (int E = 0; E < 100; E++)
+            for (int E = 0; E < 2000; E++)
             {
                 Console.WriteLine($"Epoch {E}");
                 Dictionary<Weight, int> scores = new();
@@ -56,7 +56,7 @@ namespace GA
                 }
                 wlist = wlist.OrderBy(w => -scores[w]).ToList();
                 Console.WriteLine("######");
-                foreach (var w in wlist)
+                foreach (var w in wlist.Take(3))
                     w.Print();
                 var newList = new List<Weight>();
                 for (int i = 0; i < size / 2; i++)

@@ -22,22 +22,53 @@ class AI(object):
             0, 25, 45, 60
         ]
         # count, pos, crowd, move
-        self.weights = [
-            [2, 1, 1,2],  # 0+
-            [2, 1, 1,2],  # 20+
-            [2, 1, 1,1],  # 40+
-            [1, 0, 0,0],  # 55+
+        # self.weights = [
+        #     [2, 1, 1,0],  # 0+
+        #     [2, 2, 2,1],  # 20+
+        #     [2, 2, 3,1],  # 40+
+        #     [1, 0, 0,0],  # 55+
+        # ]
+        self.weights=[
+            [3,3,2,0,0],  # 0+
+            [3, 4, 2,1,0],  # 20+
+            [3, 1, 2,2,0],  # 40+
+            [1,0,0,0,0]
         ]
+        
+        # self.weights = [
+        #     [1, 3,2,0,1],  # 0+
+        #     [1, 4,2,1,1],  # 20+
+        #     [1,1,1,2,1],  # 40+
+        #     [2, 1,1,-1,0],  # 55+
+        # ]
+        
+        # zhu,zhen
+        # self.weights = [
+        #     [4,3,0,2,1],  # 0+
+        #     [3, 2, 1,1,2],  # 20+
+        #     [1, 1, 1,2,2],  # 40+
+        #     [2, 1, 1,-1,1],  # 55+
+        # ]
         self.all = []
         for x in range(8):
             for y in range(8):
                 self.all.append((x, y))
+        # self.pos_core = [
+        #     [-100, 20, -20, 2],
+        #     [20, 8, -19, -5],
+        #     [-20, -19, -4, 8 ],
+        #     [2,-5 , 8, 3],
+        # ]
         self.pos_core = [
             [-100, 20, -5, -5],
-            [20, 10, 1, 1],
-            [-5, 1, -1, -1 ],
-            [-5,1 , -1,-1],
+            [20, -2, -1, -1],
+            [-5, -1, -1, -1, ],
+            [-5, -1, -1, -1],
         ]
+        """
+        -117.0 15.0 -7.0 -40.0 -19.0 -4.0 2.0 -5.0 5.0 13.0 | 5.2 2.8 -0.1 3.5() 1.7 2.3 0.4 0.8 ()1.1 0.8 -1.8 0.9 ()2.3 2.0 2.2 -4.2
+        -162.0,-7.0,4.0,-16.0,-18.0,-26.0,4.0,-9.0,-3.0,19.0,3.4,7.7,-1.9,4.5,2.6,2.9,0.5,-0.6,1.5,-2.8,-1.4,0.4,-5.1,4.9,1.4,2.9,5.3,0.9,-1.5,1.5,
+        """
         self.posmask = self.genmat(self.pos_core)
         self.move_core = [
             [0, 2, 1, 1],
@@ -155,7 +186,7 @@ class AI(object):
             return 0
         if stop == 0 or self.timeout() or len(cp) == 0:
             return self.eval(board, me)
-        random.shuffle(cp)
+        # random.shuffle(cp)
         for pos in cp:
             nextboard = self.next(board, pos, me)
             x = self.minimax(nextboard, -term, alpha, beta, stop-1)
@@ -208,6 +239,20 @@ class AI(object):
             res*=2
         return res
     
+    def frontier_score(self,board,color):
+        dirx=[0,0,1,-1]
+        diry=[1,-1,0,0]
+        cnt=0
+        for pos in self.all:
+            if self.get(board,pos)==color:
+                for i in range(4):
+                    t=(pos[0]+dirx[i],pos[1]+diry[i])
+                    if self.inside(t):
+                        if self.get(board,t)==COLOR_NONE:
+                            cnt+=1
+                            break
+        return cnt
+    
     def count_difference(self,board,color):
         res = 0
         for pos in self.all:
@@ -227,6 +272,13 @@ class AI(object):
         return res
 
     def eval(self, board, color):
+        # if len(self.canput(board,color))==0 and len(self.canput(board,-color))==0:
+        #     s=self.count_score(board,color)
+        #     if s>0:
+        #         return 1e5
+        #     if s==0:
+        #         return 1e4
+        #     return -1e5
         w = self.getweight(board)
         if color == self.color:
             sign = 1
@@ -241,6 +293,8 @@ class AI(object):
             val+=self.crowd_score(board, color)*w[2]
         if w[3]!=0:
             val+=self.move_score(board,color)*w[3]
+        if w[4]!=0:
+            val+=self.frontier_score(board,color)*w[4]
         return val*sign
 
     def canput(self, board, color):
@@ -258,11 +312,11 @@ class AI(object):
         self.candidate_list.clear()
         choices = self.canput(chessboard, self.color)
         score = {}
-        if self.greedy:
-            choices.sort(key=lambda x: self.eval(self.next(chessboard,x,self.color),self.color))
-            self.candidate_list = choices
-            return
-        for stop in [1,3,5,9,12,16]:
+        #2,4,9
+        slist=[0,2,4,9,12,16]
+        # if self.greedy:
+        #     slist=[0]
+        for stop in slist:
             if self.timeout():
                 break
             temp={}
@@ -277,6 +331,7 @@ class AI(object):
                 temp[x]=s
                 # +self.move_score(nextboard,self.color)
             if finish:
+                print(stop)
                 score=temp
         # print(choices)
         # print(score)
@@ -303,10 +358,10 @@ def show(board):
 
 def play(w0=None, w1=None):
     random.seed(time.time())
-    ai0 = AI(8, 1,1e10)
-    ai1 = AI(8, -1, 1e10)
-    ai0.greedy=True
-    ai1.greedy=True
+    ai0 = AI(8, 1,5)
+    ai1 = AI(8, -1, 5)
+    # ai0.greedy=True
+    # ai1.greedy=True
     if w0 is not None:
         ai0.setweights(w0)
     if w1 is not None:
@@ -349,6 +404,6 @@ def play(w0=None, w1=None):
 
 if __name__ == '__main__':
     pass
-    w=[-100, 20, 10, -5, 1, -1, -5, 1, -1, -1, 2, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 0, 0, 0]
-    while True:
-        print(play(w,[random.randint(1,20) for _ in range(36)]))
+    # w=[-100, 20, 10, -5, 1, -1, -5, 1, -1, -1, 2, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 0, 0, 0]
+    # while True:
+    print(play())
