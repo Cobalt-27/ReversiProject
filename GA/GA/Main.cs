@@ -12,11 +12,17 @@ namespace GA
         static Random rand = new Random();
         public class Weight
         {
-            public double[] val = new double[] { -151.0,-1.0,5.0,- 26.0,- 16.0,- 10.0,13.0,- 12.0,2.0,3.0,5.6,3.2,- 2.9,3.3,1,2.9,1.0,1.8,0.3,1,- 0.6,0.1,- 2.5,5.5,1,2.1,4.0,1.3,- 2.5,1 };
+            public double[] val = new double[] { -80.0,10.0,20.0,- 16.0,- 06.0,- 0.0,3.0,- 12.0,2.0,3.0,5.6,3.2,- 2.9,3.3,1,2.9,1.0,1.8,0.3,1,- 0.6,0.1,- 2.5,5.5,1,2.1,4.0,1.3,- 2.5,1 };
             public void Print()
             {
                 val.ToList().ForEach(x => Console.Write(Math.Round(x,1).ToString("0.0") + ","));
                 Console.Write("\n");
+            }
+            public string ToText()
+            {
+                string res = "";
+                val.ToList().ForEach(x => res+=Math.Round(x, 1).ToString("0.0") + ",");
+                return res;
             }
             public void Mutate()
             {
@@ -25,6 +31,8 @@ namespace GA
         };
         public void Run()
         {
+            var op = new Weight();
+            StreamWriter wf = new StreamWriter("log3.txt");
             List<Weight> wlist = new();
             int size = 16;
             wlist.Add(new Weight());
@@ -36,15 +44,16 @@ namespace GA
                 wlist.Add(new Weight());
             for (int i = size/2; i < size; i++)
                 wlist.Add(RandWeight());
-            for (int E = 0; E < 2000; E++)
+            for (int E = 0; E < 200; E++)
             {
                 Console.WriteLine($"Epoch {E}");
+                wf.WriteLine($"Epoch {E}");
                 Dictionary<Weight, int> scores = new();
                 wlist.ForEach(w => scores[w] = 0);
                 for(int i=0;i<wlist.Count;i++)
                 {
                     var w = wlist[i];
-                    for (int j = 0; j < 5; j++)
+                    for (int j = 0; j < 2; j++)
                     {
                         var idx = rand.Next() % (wlist.Count);
                         var rivalW = wlist[idx];
@@ -56,8 +65,18 @@ namespace GA
                 }
                 wlist = wlist.OrderBy(w => -scores[w]).ToList();
                 Console.WriteLine("######");
+                foreach (var w in wlist)
+                {
+                    wf.WriteLine("val "+w.ToText());
+                    //w.Print();
+                    int score = scope.GetVariable("play")(w.val, op.val);
+                    wf.WriteLine("score "+score);
+                    Console.WriteLine(score);
+                }
+                
                 foreach (var w in wlist.Take(3))
                     w.Print();
+
                 var newList = new List<Weight>();
                 for (int i = 0; i < size / 2; i++)
                     for (int j = 0; j < 2; j++)
@@ -73,8 +92,8 @@ namespace GA
                 if (wlist.Count != size)
                     throw new Exception("wrong size");
             }
-            
 
+            wf.Close();
         }
 
         Weight Cross(Weight a, Weight b)

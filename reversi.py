@@ -62,8 +62,8 @@ class AI(object):
         self.pos_core = [
             [-100, 20, -5, -5],
             [20, -2, -1, -1],
-            [-5, -1, -1, -1, ],
-            [-5, -1, -1, -1],
+            [-5, -1, -1, -3, ],
+            [-5, -3, -1, -1],
         ]
         """
         -117.0 15.0 -7.0 -40.0 -19.0 -4.0 2.0 -5.0 5.0 13.0 | 5.2 2.8 -0.1 3.5() 1.7 2.3 0.4 0.8 ()1.1 0.8 -1.8 0.9 ()2.3 2.0 2.2 -4.2
@@ -81,7 +81,7 @@ class AI(object):
         # print('pos mask:')
         # print(self.posmask)
 
-    def setweights(self, w):
+    def from_list(self, w):
         w=list(w)
         w.append(0)
         self.pos_core = [
@@ -96,6 +96,9 @@ class AI(object):
             for j, _ in enumerate(row):
                 self.weights[i][j] = w[0]
                 w = w[1:]
+    
+    def to_list(self):
+        res=[]
         # show(self.posmask)
         # print(self.weights)
         # self.epoch = w
@@ -314,8 +317,8 @@ class AI(object):
         score = {}
         #2,4,9
         slist=[0,2,4,9,12,16]
-        # if self.greedy:
-        #     slist=[0]
+        if self.greedy:
+            slist=[0]
         for stop in slist:
             if self.timeout():
                 break
@@ -331,7 +334,7 @@ class AI(object):
                 temp[x]=s
                 # +self.move_score(nextboard,self.color)
             if finish:
-                print(stop)
+                # print(stop)
                 score=temp
         # print(choices)
         # print(score)
@@ -358,14 +361,14 @@ def show(board):
 
 def play(w0=None, w1=None):
     random.seed(time.time())
-    ai0 = AI(8, 1,5)
-    ai1 = AI(8, -1, 5)
-    # ai0.greedy=True
-    # ai1.greedy=True
+    ai0 = AI(8, 1,1e5)
+    ai1 = AI(8, -1, 1e5)
+    ai0.greedy=True
+    ai1.greedy=True
     if w0 is not None:
-        ai0.setweights(w0)
+        ai0.from_list(w0)
     if w1 is not None:
-        ai1.setweights(w1)
+        ai1.from_list(w1)
     chessboard = [[0 for _ in range(8)] for _ in range(8)]
     chessboard[3][3] = 1
     chessboard[4][4] = 1
